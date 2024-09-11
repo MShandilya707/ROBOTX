@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
+    <meta charset="UTF-8">
+    <title>Boat Tracker</title>
+    <!-- HERE Maps CSS -->
+    <link rel="stylesheet" type="text/css" href="https://js.api.here.com/v3/3.1/mapsjs-ui.css" />
+    <!-- Google Fonts for a techy look -->
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&family=Roboto:wght@300;400;500&display=swap" rel="stylesheet">
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: 'Roboto', sans-serif;
+        background-color: #0a0a0a;
+        color: white;
+        text-rendering: optimizeLegibility;
+        -webkit-font-smoothing: antialiased;
+      }
+
+      .header {
+        background: linear-gradient(90deg, rgba(0,123,255,1) 0%, rgba(0,212,255,1) 100%);
+        color: white;
+        text-align: center;
+        padding: 20px;
+        font-size: 4em;
+        font-family: 'Orbitron', sans-serif;
+        letter-spacing: 10px;
+        box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.3);
+        animation: glow 3s ease-in-out infinite;
+      }
+
+      @keyframes glow {
+        0% {
+          text-shadow: 0 0 10px #fff, 0 0 20px #0d6efd, 0 0 30px #0d6efd, 0 0 40px #0d6efd, 0 0 50px #0d6efd, 0 0 60px #0d6efd, 0 0 70px #0d6efd;
+        }
+        100% {
+          text-shadow: 0 0 20px #fff, 0 0 30px #00d4ff, 0 0 40px #00d4ff, 0 0 50px #00d4ff, 0 0 60px #00d4ff, 0 0 70px #00d4ff, 0 0 80px #00d4ff;
+        }
+      }
+
+      #map {
+        width: 90%;
+        height: 60vh;
+        margin: 40px auto;
+        border: 2px solid #007BFF;
+        border-radius: 20px;
+        box-shadow: 0 8px 16px rgba(0, 123, 255, 0.2);
+      }
+
+      .page-content {
+        text-align: center;
+        padding: 20px;
+        max-width: 800px;
+        margin: 0 auto;
+      }
+
+      .page-content h1 {
+        font-family: 'Orbitron', sans-serif;
+        font-size: 2.5em;
+        margin-bottom: 10px;
+      }
+
+      .page-content p {
+        font-size: 1.2em;
+        line-height: 1.6;
+        margin-bottom: 30px;
+      }
+
+      .floating-button {
+        position: fixed;
+        bottom: 30px;
+        right: 30px;
+        background: linear-gradient(90deg, #007BFF 0%, #00D4FF 100%);
+        width: 70px;
+        height: 70px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        transition: transform 0.3s;
+      }
+
+      .floating-button:hover {
+        transform: scale(1.1);
+      }
+
+      .floating-button img {
+        width: 40px;
+        height: 40px;
+      }
+
+      .floating-button:hover {
+        box-shadow: 0 0 15px #00d4ff, 0 0 20px #00d4ff, 0 0 30px #00d4ff;
+      }
+
+      ::-webkit-scrollbar {
+        width: 8px;
+      }
+
+      ::-webkit-scrollbar-track {
+        background: #1a1a1a;
+      }
+
+      ::-webkit-scrollbar-thumb {
+        background: #007BFF;
+        border-radius: 10px;
+      }
+    </style>
+  </head>
+  <body id="markers-on-the-map">
+    <div class="header">NTU TRACKER</div>
+
+    <div class="page-content">
+      <h1>Real-Time Boat Tracker</h1>
+      <p>Map auto-refreshes every 2 seconds, centering over the boat's simulated position in real-time.</p>
+    </div>
+
+    <div id="map"></div>
+
+    <a href="#map" class="floating-button">
+      <img src="https://img.icons8.com/material-outlined/48/ffffff/compass.png" alt="Go to Map" />
+    </a>
+
+    <script src="https://js.api.here.com/v3/3.1/mapsjs-core.js"></script>
+    <script src="https://js.api.here.com/v3/3.1/mapsjs-service.js"></script>
+    <script src="https://js.api.here.com/v3/3.1/mapsjs-ui.js"></script>
+    <script src="https://js.api.here.com/v3/3.1/mapsjs-mapevents.js"></script>
+    
+    <script>
+      document.addEventListener('DOMContentLoaded', function () {
+        const apiKey = 'pbREb40hDtmiZuHeOuSKqRmlA-9Vy6v9JKkqeqk6pbk'; // Use your API key
+
+        function getBoatCoordinates() {
+          const lat = 37.82667 + (Math.random() - 0.5) * 0.01; // Random latitude variation
+          const lng = -122.423333 + (Math.random() - 0.5) * 0.01; // Random longitude variation
+
+          return {
+            lat: lat.toFixed(6),
+            lng: lng.toFixed(6)
+          };
+        }
+
+        var platform = new H.service.Platform({
+          apikey: apiKey
+        });
+
+        var defaultLayers = platform.createDefaultLayers();
+
+        var map = new H.Map(document.getElementById('map'),
+          defaultLayers.vector.normal.map, {
+            center: { lat: 37.82667, lng: -122.423333 },
+            zoom: 16,
+            pixelRatio: window.devicePixelRatio || 1
+          });
+
+        window.addEventListener('resize', () => map.getViewPort().resize());
+
+        var behavior = new H.mapevents.Behavior(new H.mapevents.MapEvents(map));
+        var ui = H.ui.UI.createDefault(map, defaultLayers, 'en-US');
+
+        function updateMap() {
+          const boatPosition = getBoatCoordinates();
+          console.log(`Boat at latitude: ${boatPosition.lat}, longitude: ${boatPosition.lng}`);
+
+          map.setCenter({ lat: parseFloat(boatPosition.lat), lng: parseFloat(boatPosition.lng) });
+        }
+
+        setInterval(updateMap, 2000);
+      });
+    </script>
+  </body>
+</html>
