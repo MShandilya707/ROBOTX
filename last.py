@@ -7,6 +7,7 @@ from datetime import datetime
 import uuid
 import socket
 import pytz  # For timezone support
+import time
 
 class HeartbeatPublisher:
     def __init__(self, server_hostname, server_port):
