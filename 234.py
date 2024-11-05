@@ -11,8 +11,9 @@ import time  # Import time for sleep
 
 
 class HeartPublisher:
-  def __init__(self, server_hostname, server_port):
-    rospy.init_node('heartbeat_publisher', anonymous=True)
+    def __init__(self, server_hostname, server_port):
+        rospy.init_node('heartbeat_publisher', anonymous=True)
+        
         # Constants
         self.server_hostname = server_hostname  # Server hostname (socket ID)
         self.server_port = server_port          # Server port number
@@ -31,29 +32,30 @@ class HeartPublisher:
         rospy.Subscriber('/gps/gps_fix', NavSatFix, self.gps_callback)
         rospy.Subscriber('MODE', Int32, self.mode_callback)
         rospy.Subscriber('UAV', Int32, self.uav_callback)
-  def gps_callback(self, msg):
+
+    def gps_callback(self, msg):
         # Update GPS data from topic
         self.latitude = msg.latitude
         self.ns_indicator = 'N' if msg.latitude >= 0 else 'S'
         self.longitude = msg.longitude
         self.ew_indicator = 'E' if msg.longitude >= 0 else 'W'
 
-  def mode_callback(self, msg):
+    def mode_callback(self, msg):
         # Update system mode from MODE topic
         self.system_mode = msg.data
 
-  def uav_callback(self, msg):
+    def uav_callback(self, msg):
         # Update UAV status from UAV topic
         self.uav_status = msg.data
 
-  def calculate_checksum(self, message):
+    def calculate_checksum(self, message):
         # Calculate the checksum by bitwise XOR over all characters in the message
         checksum = 0
         for char in message:
             checksum ^= ord(char)
         return f"{checksum:X}"  # Return as hexadecimal string
 
-  def create_heartbeat_message(self):
+    def create_heartbeat_message(self):
         # Generate a unique message ID using UUID
         unique_message_id = f"${uuid.uuid4().hex[:8].upper()}"
 
@@ -75,15 +77,15 @@ class HeartPublisher:
         
         return heartbeat_message
     
-  def sender():
-    self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
-    self.sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
-    self.sock.connect((self.server_hostname, self.server_port))
-    
-    for i in range(1000000000):
-      heartbeat_message = self.create_heartbeat_message()
-      print(f"Heartbeat Message: {heartbeat_message}")
+    def sender(self):
+        self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
+        self.sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+        self.sock.connect((self.server_hostname, self.server_port))
+        
+        for i in range(1000000000):
+            heartbeat_message = self.create_heartbeat_message()
+            print(f"Heartbeat Message: {heartbeat_message}")
             try:
                 # Send the heartbeat message over TCP to the server
                 self.sock.sendall(heartbeat_message.encode())
@@ -95,18 +97,18 @@ class HeartPublisher:
 
             time.sleep(1)  # Delay for 1 second
 
-   def __del__(self):
+    def __del__(self):
         # Close the socket when the object is deleted or the node shuts down
-        if self.sock:
+        if hasattr(self, 'sock') and self.sock:
             self.sock.close()
             rospy.loginfo("Socket closed.")
 
-if name=='__main__':
-  try:
-    server_hostname = 'robot.server'
-    server_port = 12345
-    hb = HeartbeatPublisher(server_hostname, server_port)
-    hb.sender()
-  
-      
-  
+
+if __name__ == '__main__':
+    try:
+        server_hostname = 'robot.server'
+        server_port = 12345
+        hb = HeartPublisher(server_hostname, server_port)
+        hb.sender()
+    except rospy.ROSInterruptException:
+        pass
