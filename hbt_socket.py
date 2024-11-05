@@ -75,7 +75,9 @@ class HeartbeatPublisher:
         est_time = current_time.strftime("%H%M%S")
 
         # Format message without checksum
-        msg_without_checksum = f"{unique_message_id},{est_date},{est_time},{self.latitude},{self.ns_indicator}," \
+        # msg_without_checksum = f"{unique_message_id},{est_date},{est_time},{self.latitude},{self.ns_indicator}," \
+                               # f"{self.longitude},{self.ew_indicator},{self.team_id},{self.system_mode},{self.uav_status}"
+        msg_without_checksum = f"RXHRB,{est_date},{est_time},{self.latitude},{self.ns_indicator}," \
                                f"{self.longitude},{self.ew_indicator},{self.team_id},{self.system_mode},{self.uav_status}"
         
         # Calculate checksum
