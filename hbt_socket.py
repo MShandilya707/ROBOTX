@@ -2,6 +2,7 @@
 
 import rospy
 from std_msgs.msg import String, Int32
+from sensor_msgs.msg import NavSatFix
 from datetime import datetime
 import uuid
 import socket
@@ -26,7 +27,7 @@ class HeartbeatPublisher:
         self.uav_status = 1   # Default to Stowed
 
         # Subscribers to required topics
-        rospy.Subscriber('/gps/gps_fix', String, self.gps_callback)
+        rospy.Subscriber('/gps/gps_fix', NavSatFix, self.gps_callback)
         rospy.Subscriber('MODE', Int32, self.mode_callback)
         rospy.Subscriber('UAV', Int32, self.uav_callback)
 
@@ -41,11 +42,10 @@ class HeartbeatPublisher:
 
     def gps_callback(self, msg):
         # Update GPS data from topic
-        data = msg.data.split(',')
-        self.latitude = float(data[0])
-        self.ns_indicator = data[1]
-        self.longitude = float(data[2])
-        self.ew_indicator = data[3]
+        self.latitude = msg.latitude
+        self.ns_indicator = 'N' if msg.latitude >= 0 else 'S'
+        self.longitude = msg.longitude
+        self.ew_indicator = 'E' if msg.longitude >= 0 else 'W'
 
     def mode_callback(self, msg):
         # Update system mode from MODE topic
