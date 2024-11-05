@@ -101,7 +101,12 @@ class HeartPublisher:
             self.sock.close()
             rospy.loginfo("Socket closed.")
 
-
-      
+if name=='__main__':
+  try:
+    server_hostname = 'robot.server'
+    server_port = 12345
+    hb = HeartbeatPublisher(server_hostname, server_port)
+    hb.sender()
+  
       
   
