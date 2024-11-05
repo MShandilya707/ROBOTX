@@ -14,7 +14,7 @@ class HeartbeatPublisher:
         # Constants
         self.server_ip = server_ip      # Server IP address
         self.server_port = server_port  # Server port number
-        self.team_id = "ROBOTX_NTU"     # Team ID constant
+        self.team_id = "NTCH"     # Team ID constant
         self.rate = rospy.Rate(1)       # 1 Hz
 
         # Initialize dynamic fields with default values
@@ -26,7 +26,7 @@ class HeartbeatPublisher:
         self.uav_status = 1   # Default to Stowed
 
         # Subscribers to required topics
-        rospy.Subscriber('GPS', String, self.gps_callback)
+        rospy.Subscriber('/gps/gps_fix', String, self.gps_callback)
         rospy.Subscriber('MODE', Int32, self.mode_callback)
         rospy.Subscriber('UAV', Int32, self.uav_callback)
 
