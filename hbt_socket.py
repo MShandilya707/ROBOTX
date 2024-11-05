@@ -87,6 +87,7 @@ class HeartbeatPublisher:
     def send_heartbeat(self):
         while not rospy.is_shutdown():
             heartbeat_message = self.create_heartbeat_message()
+            print(f"Heartbeat Message: {heartbeat_message}")
 
             try:
                 # Send the heartbeat message over TCP to the server
