@@ -107,10 +107,11 @@ if __name__ == '__main__':
         # Replace 'server_hostname' with the socket ID hostname, and 'server_port' with the actual port number
         server_hostname = 'robot.server'  # Example server hostname
         server_port = 12345                          # Example server port
+        hb_publisher = HeartbeatPublisher(server_hostname, server_port)
 
 
         for i in range(100000000):
-            hb_publisher = HeartbeatPublisher(server_hostname, server_port)
+            
             hb_publisher.send_heartbeat()
             time.sleep(1)
         
