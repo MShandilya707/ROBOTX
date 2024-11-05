@@ -112,6 +112,8 @@ if __name__ == '__main__':
         for i in range(100000000):
             hb_publisher = HeartbeatPublisher(server_hostname, server_port)
             hb_publisher.send_heartbeat()
+            time.sleep(1)
+        
 
         
     except rospy.ROSInterruptException:
