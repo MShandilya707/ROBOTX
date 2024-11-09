@@ -1,114 +1,155 @@
-#!/usr/bin/env python3
-
-import rospy
-from std_msgs.msg import String, Int32
-from sensor_msgs.msg import NavSatFix
-from datetime import datetime
-import uuid
 import socket
-import pytz  # For timezone support
-import time  # Import time for sleep
+import sys
+from datetime import datetime
+import pytz
+import random
+import time
+import os
+import json
+import threading
+from dronekit import connect
+from collections.abc import MutableMapping
 
+# Initialize GPS variables for USV and UAV
+usv_lat = 27.37416  # Default USV latitude
+usv_long = 82.45264  # Default USV longitude
+uav_lat = 27.37416  # Default UAV latitude
+uav_long = 82.45264  # Default UAV longitude
 
-class HeartPublisher:
-    def __init__(self, server_hostname, server_port):
-        rospy.init_node('heartbeat_publisher', anonymous=True)
-        
-        # Constants
-        self.server_hostname = server_hostname  # Server hostname (socket ID)
-        self.server_port = server_port          # Server port number
-        self.team_id = "NTCH"                   # Team ID constant
-        self.rate = rospy.Rate(1)               # 1 Hz
+# Initialize mode for UAV (2 = autonomous mode)
+autonomous_mode = 2
 
-        # Initialize dynamic fields with default values
-        self.latitude = 0.0
-        self.longitude = 0.0
-        self.ns_indicator = 'N'
-        self.ew_indicator = 'W'
-        self.system_mode = 2  # Default to Autonomous
-        self.uav_status = 1   # Default to Stowed
+EASTERN_TIME = pytz.timezone('US/Eastern')
+PACIFIC_TIME = pytz.timezone("US/Pacific")
 
-        # Subscribers to required topics
-        rospy.Subscriber('/gps/gps_fix', NavSatFix, self.gps_callback)
-        rospy.Subscriber('MODE', Int32, self.mode_callback)
-        rospy.Subscriber('UAV', Int32, self.uav_callback)
+def get_date():
+    current_time = datetime.now(EASTERN_TIME)
+    est_date = current_time.strftime("%d%m%y")
+    return est_date
 
-    def gps_callback(self, msg):
-        # Update GPS data from topic
-        self.latitude = msg.latitude
-        self.ns_indicator = 'N' if msg.latitude >= 0 else 'S'
-        self.longitude = msg.longitude
-        self.ew_indicator = 'E' if msg.longitude >= 0 else 'W'
+def get_time():
+    current_time = datetime.now(EASTERN_TIME)
+    est_time = current_time.strftime("%H%M%S")
+    return est_time
 
-    def mode_callback(self, msg):
-        # Update system mode from MODE topic
-        self.system_mode = msg.data
+def attach_checksum(nmea_sentence):
+    """Calculates and attaches a checksum to an NMEA sentence."""
+    sentence = nmea_sentence.strip("$!*")
+    checksum = 0
+    for char in sentence:
+        checksum ^= ord(char)
+    return f"${sentence}*{checksum:02X}"
 
-    def uav_callback(self, msg):
-        # Update UAV status from UAV topic
-        self.uav_status = msg.data
+entity = 'NTCH'
 
-    def calculate_checksum(self, message):
-        # Calculate the checksum by bitwise XOR over all characters in the message
-        checksum = 0
-        for char in message:
-            checksum ^= ord(char)
-        return f"{checksum:X}"  # Return as hexadecimal string
+# Connect to the Pixhawk devices for USV and UAV
+try:
+    usv_vehicle = connect('COM9', baud=57600)
+except Exception as e:
+    print(f"Failed to connect to Pixhawk devices: {e}")
+    sys.exit(1)
 
-    def create_heartbeat_message(self):
-        # Generate a unique message ID using UUID
-        unique_message_id = f"${uuid.uuid4().hex[:8].upper()}"
-
-        # Get the current date and time in U.S. Eastern Standard Time (EST)
-        est = pytz.timezone('US/Eastern')
-        current_time = datetime.now(est)
-        est_date = current_time.strftime("%d%m%y")
-        est_time = current_time.strftime("%H%M%S")
-
-        # Format message without checksum
-        msg_without_checksum = f"RXHRB,{est_date},{est_time},{self.latitude},{self.ns_indicator}," \
-                               f"{self.longitude},{self.ew_indicator},{self.team_id},{self.system_mode},{self.uav_status}"
-        
-        # Calculate checksum
-        checksum = self.calculate_checksum(msg_without_checksum)
-        
-        # Construct the complete message with checksum
-        heartbeat_message = f"${msg_without_checksum}*{checksum}"
-        
-        return heartbeat_message
-    
-    def sender(self):
-        self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
-        self.sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
-        self.sock.connect((self.server_hostname, self.server_port))
-        
-        for i in range(1000000000):
-            heartbeat_message = self.create_heartbeat_message()
-            print(f"Heartbeat Message: {heartbeat_message}")
-            try:
-                # Send the heartbeat message over TCP to the server
-                self.sock.sendall(heartbeat_message.encode())
-                rospy.loginfo(f"Sent heartbeat message: {heartbeat_message}")
-            except socket.error as e:
-                rospy.logerr(f"Socket error: {e}")
-                rospy.signal_shutdown("Socket send error")
-                break  # Exit the loop if there's a socket error
-
-            time.sleep(1)  # Delay for 1 second
-
-    def __del__(self):
-        # Close the socket when the object is deleted or the node shuts down
-        if hasattr(self, 'sock') and self.sock:
-            self.sock.close()
-            rospy.loginfo("Socket closed.")
-
-
-if __name__ == '__main__':
+# Define callback functions for GPS data
+def usv_gps_callback(self, name, message):
+    global usv_lat, usv_long
     try:
-        server_hostname = 'robot.server'
-        server_port = 12345
-        hb = HeartPublisher(server_hostname, server_port)
-        hb.sender()
-    except rospy.ROSInterruptException:
+        usv_lat = abs(message.lat / 1e7)  # Convert to decimal degrees
+        usv_long = abs(message.lon / 1e7)
+        print(usv_lat, usv_long)
+    except:
         pass
+
+# Placeholder function to check UAV mode (to be implemented later)
+def check_uav_mode():
+    # Future implementation for determining the UAV mode
+    pass
+
+# Listen to GPS_RAW_INT messages for both USV and UAV
+usv_vehicle.add_message_listener('GPS_RAW_INT', usv_gps_callback)
+
+
+
+
+with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+    sock.connect(('robot.server', 12345))
+
+    counter = 0
+    lot = True
+
+    for x in range(100000000):
+        counter+=1
+        try:
+            usv_data = f"RXHRB,{get_date()},{get_time()},{usv_lat},N,{usv_long},W,{entity},2,1"
+            usv_nmea_hrb_msg = attach_checksum(usv_data)
+
+            usv_data_undocked = f"RXHRB,{get_date()},{get_time()},{usv_lat},N,{usv_long},W,{entity},2,2"
+            usv_nmea_hrb_undocked = attach_checksum(usv_data_undocked)
+        except:
+            usv_data = f"RXHRB,{get_date()},{get_time()},27.37416,N,82.45264,W,{entity},2,1"
+            usv_nmea_hrb_msg = attach_checksum(usv_data)
+
+            usv_data_undocked = f"RXHRB,{get_date()},{get_time()},27.37416,N,82.45264,W,{entity},2,2"
+            usv_nmea_hrb_undocked = attach_checksum(usv_data_undocked)
+
+        usv_gate = f"RXGAT,{get_date()},{get_time()},{entity},3,3"
+        usv_nmea_hrb_msg2 = attach_checksum(usv_gate)
+
+        usv_follow_inprog = f"RXPTH,{get_date()},{get_time()},{entity},R,1"
+        usv_nmea_hrb_msg_inprog = attach_checksum(usv_follow_inprog)
+
+        usv_follow_complete = f"RXPTH,{get_date()},{get_time()},{entity},R,2"
+        usv_nmea_hrb_msg_complete = attach_checksum(usv_follow_complete)
+
+        usv_scan = f"RXCOD,{get_date()},{get_time()},{entity},RBR"
+        usv_nmea_hrb_msg_scan = attach_checksum(usv_scan)
+
+        sock.sendall(bytes(usv_nmea_hrb_msg + "\n", "utf-8"))
+        print(f"Sent USV Heartbeat message: {usv_nmea_hrb_msg}")
+
+
+        if 40 >= counter:
+
+            sock.sendall(bytes(usv_nmea_hrb_msg2 + "\n", "utf-8"))
+            print(f"Sent USV Heartbeat message: {usv_nmea_hrb_msg2}")
+            print()
+
+        elif 60 >= counter:
+            sock.sendall(bytes(usv_nmea_hrb_msg_scan + "\n", "utf-8"))
+            print(f"Sent USV Heartbeat message: {usv_nmea_hrb_msg_scan}")
+            print()
+
+        elif 75 >= counter:
+            sock.sendall(bytes(usv_nmea_hrb_msg_inprog + "\n", "utf-8"))
+            print(f"Sent USV Heartbeat message: {usv_nmea_hrb_msg_inprog}")
+            print()
+
+        elif 90 >= counter:
+            sock.sendall(bytes(usv_nmea_hrb_msg_inprog + "\n", "utf-8"))
+            print(f"Sent USV Heartbeat message: {usv_nmea_hrb_msg_inprog}")
+            print()
+
+
+        elif 120 >= counter:
+
+            sock.sendall(bytes(usv_nmea_hrb_msg_inprog + "\n", "utf-8"))
+            print(f"Sent USV Heartbeat message: {usv_nmea_hrb_msg_inprog}")
+            print()
+
+
+        else:
+
+            if lot == True:
+                sock.sendall(bytes(usv_nmea_hrb_msg_complete + "\n", "utf-8"))
+                print(f"Sent USV Heartbeat message: {usv_nmea_hrb_msg_complete}")
+                lot = False
+            elif lot == False:
+                pass
+
+
+            sock.sendall(bytes(usv_nmea_hrb_msg2 + "\n", "utf-8"))
+            print(f"Sent USV Heartbeat message: {usv_nmea_hrb_msg2}")
+            print()
+        time.sleep(1)
+
+# Close vehicle connections when the loop ends
+usv_vehicle.close()
